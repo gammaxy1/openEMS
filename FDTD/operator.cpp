@@ -22,7 +22,6 @@
 #include "extensions/operator_extension.h"
 #include "extensions/operator_ext_excitation.h"
 #include "Common/processfields.h"
-#include "tools/array_ops.h"
 #include "tools/vtk_file_writer.h"
 #include "fparser.hh"
 #include "extensions/operator_ext_excitation.h"
@@ -74,15 +73,15 @@ void Operator::Init()
 
 	Operator_Base::Init();
 
-	vv=NULL;
-	vi=NULL;
-	iv=NULL;
-	ii=NULL;
+	vv_ptr = NULL;
+	vi_ptr = NULL;
+	iv_ptr = NULL;
+	ii_ptr = NULL;
 
-	m_epsR=NULL;
-	m_kappa=NULL;
-	m_mueR=NULL;
-	m_sigma=NULL;
+	m_epsR_ptr = NULL;
+	m_kappa_ptr = NULL;
+	m_mueR_ptr = NULL;
+	m_sigma_ptr = NULL;
 
 	MainOp=NULL;
 
@@ -103,11 +102,15 @@ void Operator::Delete()
 {
 	CSX = NULL;
 
-	Delete_N_3DArray(vv,numLines);
-	Delete_N_3DArray(vi,numLines);
-	Delete_N_3DArray(iv,numLines);
-	Delete_N_3DArray(ii,numLines);
-	vv=vi=iv=ii=0;
+	delete vv_ptr;
+	delete vi_ptr;
+	delete iv_ptr;
+	delete ii_ptr;
+	vv_ptr = NULL;
+	vi_ptr = NULL;
+	iv_ptr = NULL;
+	ii_ptr = NULL;
+
 	delete MainOp; MainOp=0;
 	for (int n=0; n<3; ++n)
 	{
@@ -117,14 +120,14 @@ void Operator::Delete()
 		delete[] EC_R[n];EC_R[n]=0;
 	}
 
-	Delete_N_3DArray(m_epsR,numLines);
-	m_epsR=0;
-	Delete_N_3DArray(m_kappa,numLines);
-	m_kappa=0;
-	Delete_N_3DArray(m_mueR,numLines);
-	m_mueR=0;
-	Delete_N_3DArray(m_sigma,numLines);
-	m_sigma=0;
+	delete m_epsR_ptr;
+	m_epsR_ptr = NULL;
+	delete m_kappa_ptr;
+	m_kappa_ptr = NULL;
+	delete m_mueR_ptr;
+	m_mueR_ptr = NULL;
+	delete m_sigma_ptr;
+	m_sigma_ptr = NULL;
 }
 
 void Operator::Reset()
@@ -379,7 +382,6 @@ int Operator::SnapLine2Mesh(const double* start, const double* stop, unsigned in
 	return ret;
 }
 
-
 Grid_Path Operator::FindPath(double start[], double stop[])
 {
 	Grid_Path path;
@@ -565,30 +567,29 @@ void Operator::DumpOperator2File(string filename)
 
 	if (Op_Ext_Exc)
 	{
-		FDTD_FLOAT**** exc = NULL;
 		if (Op_Ext_Exc->Volt_Count>0)
 		{
-			exc = Create_N_3DArray<FDTD_FLOAT>(numLines);
+			ArrayLib::ArrayNIJK<FDTD_FLOAT> exc("exc", numLines);
+
 			for (unsigned int n=0; n<  Op_Ext_Exc->Volt_Count; ++n)
-				exc[  Op_Ext_Exc->Volt_dir[n]][  Op_Ext_Exc->Volt_index[0][n]][  Op_Ext_Exc->Volt_index[1][n]][  Op_Ext_Exc->Volt_index[2][n]] =   Op_Ext_Exc->Volt_amp[n];
+				exc(Op_Ext_Exc->Volt_dir[n], Op_Ext_Exc->Volt_index[0][n], Op_Ext_Exc->Volt_index[1][n], Op_Ext_Exc->Volt_index[2][n]) =   Op_Ext_Exc->Volt_amp[n];
 			vtk_Writer->AddVectorField("exc_volt",exc);
-			Delete_N_3DArray(exc,numLines);
 		}
 
 		if (  Op_Ext_Exc->Curr_Count>0)
 		{
-			exc = Create_N_3DArray<FDTD_FLOAT>(numLines);
+			ArrayLib::ArrayNIJK<FDTD_FLOAT> exc("exc", numLines);
+
 			for (unsigned int n=0; n<  Op_Ext_Exc->Curr_Count; ++n)
-				exc[  Op_Ext_Exc->Curr_dir[n]][  Op_Ext_Exc->Curr_index[0][n]][  Op_Ext_Exc->Curr_index[1][n]][  Op_Ext_Exc->Curr_index[2][n]] =   Op_Ext_Exc->Curr_amp[n];
+				exc(Op_Ext_Exc->Curr_dir[n], Op_Ext_Exc->Curr_index[0][n], Op_Ext_Exc->Curr_index[1][n], Op_Ext_Exc->Curr_index[2][n]) =   Op_Ext_Exc->Curr_amp[n];
 			vtk_Writer->AddVectorField("exc_curr",exc);
-			Delete_N_3DArray(exc,numLines);
 		}
 	}
 
-	FDTD_FLOAT**** vv_temp = Create_N_3DArray<FDTD_FLOAT>(numLines);
-	FDTD_FLOAT**** vi_temp = Create_N_3DArray<FDTD_FLOAT>(numLines);
-	FDTD_FLOAT**** iv_temp = Create_N_3DArray<FDTD_FLOAT>(numLines);
-	FDTD_FLOAT**** ii_temp = Create_N_3DArray<FDTD_FLOAT>(numLines);
+	ArrayLib::ArrayNIJK<FDTD_FLOAT> vv_temp("vv", numLines);
+	ArrayLib::ArrayNIJK<FDTD_FLOAT> vi_temp("vi", numLines);
+	ArrayLib::ArrayNIJK<FDTD_FLOAT> iv_temp("iv", numLines);
+	ArrayLib::ArrayNIJK<FDTD_FLOAT> ii_temp("ii", numLines);
 
 	unsigned int pos[3], n;
 	for (n=0; n<3; n++)
@@ -596,21 +597,17 @@ void Operator::DumpOperator2File(string filename)
 			for (pos[1]=0; pos[1]<numLines[1]; pos[1]++)
 				for (pos[2]=0; pos[2]<numLines[2]; pos[2]++)
 				{
-					vv_temp[n][pos[0]][pos[1]][pos[2]] = GetVV(n,pos);
-					vi_temp[n][pos[0]][pos[1]][pos[2]] = GetVI(n,pos);
-					iv_temp[n][pos[0]][pos[1]][pos[2]] = GetIV(n,pos);
-					ii_temp[n][pos[0]][pos[1]][pos[2]] = GetII(n,pos);
+					vv_temp(n, pos[0], pos[1], pos[2]) = GetVV(n,pos);
+					vi_temp(n, pos[0], pos[1], pos[2]) = GetVI(n,pos);
+					iv_temp(n, pos[0], pos[1], pos[2]) = GetIV(n,pos);
+					ii_temp(n, pos[0], pos[1], pos[2]) = GetII(n,pos);
 				}
 
 
 	vtk_Writer->AddVectorField("vv",vv_temp);
-	Delete_N_3DArray(vv_temp,numLines);
 	vtk_Writer->AddVectorField("vi",vi_temp);
-	Delete_N_3DArray(vi_temp,numLines);
 	vtk_Writer->AddVectorField("iv",iv_temp);
-	Delete_N_3DArray(iv_temp,numLines);
 	vtk_Writer->AddVectorField("ii",ii_temp);
-	Delete_N_3DArray(ii_temp,numLines);
 
 	if (vtk_Writer->Write()==false)
 		cerr << "Operator::DumpOperator2File: Error: Can't write file... skipping!" << endl;
@@ -743,10 +740,10 @@ void Operator::DumpMaterial2File(string filename)
 
 	cout << "Operator: Dumping material information to vtk file: " << filename << " ..."  << flush;
 
-	FDTD_FLOAT**** epsilon = Create_N_3DArray<FDTD_FLOAT>(numLines);
-	FDTD_FLOAT**** mue     = Create_N_3DArray<FDTD_FLOAT>(numLines);
-	FDTD_FLOAT**** kappa   = Create_N_3DArray<FDTD_FLOAT>(numLines);
-	FDTD_FLOAT**** sigma   = Create_N_3DArray<FDTD_FLOAT>(numLines);
+	ArrayLib::ArrayNIJK<FDTD_FLOAT> epsilon("epsilonR", numLines);
+	ArrayLib::ArrayNIJK<FDTD_FLOAT> mue("mueR", numLines);
+	ArrayLib::ArrayNIJK<FDTD_FLOAT> kappa("kappa", numLines);
+	ArrayLib::ArrayNIJK<FDTD_FLOAT> sigma("sigma", numLines);
 
 	unsigned int pos[3];
 	for (pos[0]=0; pos[0]<numLines[0]; ++pos[0])
@@ -760,10 +757,10 @@ void Operator::DumpMaterial2File(string filename)
 				{
 					double inMat[4];
 					Calc_EffMatPos(n, pos, inMat, vPrims);
-					epsilon[n][pos[0]][pos[1]][pos[2]] = inMat[0]/__EPS0__;
-					mue[n][pos[0]][pos[1]][pos[2]]     = inMat[2]/__MUE0__;
-					kappa[n][pos[0]][pos[1]][pos[2]]   = inMat[1];
-					sigma[n][pos[0]][pos[1]][pos[2]]   = inMat[3];
+					epsilon(n, pos[0], pos[1], pos[2]) = inMat[0]/__EPS0__;
+					mue(n, pos[0], pos[1], pos[2])     = inMat[2]/__MUE0__;
+					kappa(n, pos[0], pos[1], pos[2])   = inMat[1];
+					sigma(n, pos[0], pos[1], pos[2])   = inMat[3];
 				}
 			}
 		}
@@ -776,13 +773,9 @@ void Operator::DumpMaterial2File(string filename)
 	vtk_Writer->SetNativeDump(true);
 
 	vtk_Writer->AddVectorField("epsilon",epsilon);
-	Delete_N_3DArray(epsilon,numLines);
 	vtk_Writer->AddVectorField("mue",mue);
-	Delete_N_3DArray(mue,numLines);
 	vtk_Writer->AddVectorField("kappa",kappa);
-	Delete_N_3DArray(kappa,numLines);
 	vtk_Writer->AddVectorField("sigma",sigma);
-	Delete_N_3DArray(sigma,numLines);
 
 	if (vtk_Writer->Write()==false)
 		cerr << "Operator::DumpMaterial2File: Error: Can't write file... skipping!" << endl;
@@ -790,7 +783,7 @@ void Operator::DumpMaterial2File(string filename)
 	delete vtk_Writer;
 }
 
- bool Operator::SetupCSXGrid(CSRectGrid* grid)
+bool Operator::SetupCSXGrid(CSRectGrid* grid)
  {
 	 for (int n=0; n<3; ++n)
 	 {
@@ -838,14 +831,14 @@ bool Operator::SetGeometryCSX(ContinuousStructure* geo)
 
 void Operator::InitOperator()
 {
-	Delete_N_3DArray(vv,numLines);
-	Delete_N_3DArray(vi,numLines);
-	Delete_N_3DArray(iv,numLines);
-	Delete_N_3DArray(ii,numLines);
-	vv = Create_N_3DArray<FDTD_FLOAT>(numLines);
-	vi = Create_N_3DArray<FDTD_FLOAT>(numLines);
-	iv = Create_N_3DArray<FDTD_FLOAT>(numLines);
-	ii = Create_N_3DArray<FDTD_FLOAT>(numLines);
+	delete vv_ptr;
+	delete vi_ptr;
+	delete iv_ptr;
+	delete ii_ptr;
+	vv_ptr = new ArrayLib::ArrayNIJK<FDTD_FLOAT>("vv", numLines);
+	vi_ptr = new ArrayLib::ArrayNIJK<FDTD_FLOAT>("vi", numLines);
+	iv_ptr = new ArrayLib::ArrayNIJK<FDTD_FLOAT>("iv", numLines);
+	ii_ptr = new ArrayLib::ArrayNIJK<FDTD_FLOAT>("ii", numLines);
 }
 
 void Operator::InitDataStorage()
@@ -854,61 +847,57 @@ void Operator::InitDataStorage()
 	{
 		if (g_settings.GetVerboseLevel()>0)
 			cerr << "Operator::InitDataStorage(): Storing epsR material data..." << endl;
-		Delete_N_3DArray(m_epsR,numLines);
-		m_epsR = Create_N_3DArray<float>(numLines);
+		m_epsR_ptr = new ArrayLib::ArrayNIJK<float>("m_epsR", numLines);
 	}
 	if (m_StoreMaterial[1])
 	{
 		if (g_settings.GetVerboseLevel()>0)
 			cerr << "Operator::InitDataStorage(): Storing kappa material data..." << endl;
-		Delete_N_3DArray(m_kappa,numLines);
-		m_kappa = Create_N_3DArray<float>(numLines);
+		m_kappa_ptr = new ArrayLib::ArrayNIJK<float>("m_kappa", numLines);
 	}
 	if (m_StoreMaterial[2])
 	{
 		if (g_settings.GetVerboseLevel()>0)
 			cerr << "Operator::InitDataStorage(): Storing muR material data..." << endl;
-		Delete_N_3DArray(m_mueR,numLines);
-		m_mueR = Create_N_3DArray<float>(numLines);
+		m_mueR_ptr = new ArrayLib::ArrayNIJK<float>("m_mueR", numLines);
 	}
 	if (m_StoreMaterial[3])
 	{
 		if (g_settings.GetVerboseLevel()>0)
 			cerr << "Operator::InitDataStorage(): Storing sigma material data..." << endl;
-		Delete_N_3DArray(m_sigma,numLines);
-		m_sigma = Create_N_3DArray<float>(numLines);
+		m_sigma_ptr = new ArrayLib::ArrayNIJK<float>("m_sigma", numLines);
 	}
 }
 
 void Operator::CleanupMaterialStorage()
 {
-	if (!m_StoreMaterial[0] && m_epsR)
+	if (!m_StoreMaterial[0] && m_epsR_ptr)
 	{
 		if (g_settings.GetVerboseLevel()>0)
 			cerr << "Operator::CleanupMaterialStorage(): Delete epsR material data..." << endl;
-		Delete_N_3DArray(m_epsR,numLines);
-		m_epsR = NULL;
+		delete m_epsR_ptr;
+		m_epsR_ptr = NULL;
 	}
-	if (!m_StoreMaterial[1] && m_kappa)
+	if (!m_StoreMaterial[1] && m_kappa_ptr)
 	{
 		if (g_settings.GetVerboseLevel()>0)
 			cerr << "Operator::CleanupMaterialStorage(): Delete kappa material data..." << endl;
-		Delete_N_3DArray(m_kappa,numLines);
-		m_kappa = NULL;
+		delete m_kappa_ptr;
+		m_kappa_ptr = NULL;
 	}
-	if (!m_StoreMaterial[2] && m_mueR)
+	if (!m_StoreMaterial[2] && m_mueR_ptr)
 	{
 		if (g_settings.GetVerboseLevel()>0)
 			cerr << "Operator::CleanupMaterialStorage(): Delete mueR material data..." << endl;
-		Delete_N_3DArray(m_mueR,numLines);
-		m_mueR = NULL;
+		delete m_mueR_ptr;
+		m_mueR_ptr = NULL;
 	}
-	if (!m_StoreMaterial[3] && m_sigma)
+	if (!m_StoreMaterial[3] && m_sigma_ptr)
 	{
 		if (g_settings.GetVerboseLevel()>0)
 			cerr << "Operator::CleanupMaterialStorage(): Delete sigma material data..." << endl;
-		Delete_N_3DArray(m_sigma,numLines);
-		m_sigma = NULL;
+		delete m_sigma_ptr;
+		m_sigma_ptr = NULL;
 	}
 }
 
@@ -917,21 +906,37 @@ double Operator::GetDiscMaterial(int type, int n, const unsigned int pos[3]) con
 	switch (type)
 	{
 	case 0:
-		if (m_epsR==0)
+		if (m_epsR_ptr == NULL)
 			return 0;
-		return m_epsR[n][pos[0]][pos[1]][pos[2]];
+		else
+		{
+			ArrayLib::ArrayNIJK<float>& m_epsR = *m_epsR_ptr;
+			return m_epsR(n, pos[0], pos[1], pos[2]);
+		}
 	case 1:
-		if (m_kappa==0)
+		if (m_kappa_ptr == NULL)
 			return 0;
-		return m_kappa[n][pos[0]][pos[1]][pos[2]];
+		else
+		{
+			ArrayLib::ArrayNIJK<float>& m_kappa = *m_kappa_ptr;
+			return m_kappa(n, pos[0], pos[1], pos[2]);
+		}
 	case 2:
-		if (m_mueR==0)
+		if (m_mueR_ptr == NULL)
 			return 0;
-		return m_mueR[n][pos[0]][pos[1]][pos[2]];
+		else
+		{
+			ArrayLib::ArrayNIJK<float>& m_mueR = *m_mueR_ptr;
+			return m_mueR(n, pos[0], pos[1], pos[2]);
+		}
 	case 3:
-		if (m_sigma==0)
+		if (m_sigma_ptr == NULL)
 			return 0;
-		return m_sigma[n][pos[0]][pos[1]][pos[2]];
+		else
+		{
+			ArrayLib::ArrayNIJK<float>& m_sigma = *m_sigma_ptr;
+			return m_sigma(n, pos[0], pos[1], pos[2]);
+		}
 	}
 	return 0;
 }
@@ -1031,7 +1036,7 @@ int Operator::CalcECOperator( DebugFlags debugFlags )
 	bool PEC[6]={1,1,1,1,1,1};
 	//make an exception for BC == -1
 	for (int n=0; n<6; ++n)
-		if ((m_BC[n]==-1))
+		if (m_BC[n]==-1)
 			PEC[n] = false;
 	ApplyElectricBC(PEC);
 
@@ -1179,14 +1184,26 @@ bool Operator::Calc_ECPos(int ny, const unsigned int* pos, double* EC, vector<CS
 	double EffMat[4];
 	Calc_EffMatPos(ny,pos,EffMat, vPrims);
 
-	if (m_epsR)
-		m_epsR[ny][pos[0]][pos[1]][pos[2]] =  EffMat[0];
-	if (m_kappa)
-		m_kappa[ny][pos[0]][pos[1]][pos[2]] =  EffMat[1];
-	if (m_mueR)
-		m_mueR[ny][pos[0]][pos[1]][pos[2]] =  EffMat[2];
-	if (m_sigma)
-		m_sigma[ny][pos[0]][pos[1]][pos[2]] =  EffMat[3];
+	if (m_epsR_ptr)
+	{
+		ArrayLib::ArrayNIJK<float>& m_epsR = *m_epsR_ptr;
+		m_epsR(ny, pos[0], pos[1], pos[2]) =  EffMat[0];
+	}
+	if (m_kappa_ptr)
+	{
+		ArrayLib::ArrayNIJK<float>& m_kappa = *m_kappa_ptr;
+		m_kappa(ny, pos[0], pos[1], pos[2]) =  EffMat[1];
+	}
+	if (m_mueR_ptr)
+	{
+		ArrayLib::ArrayNIJK<float>& m_mueR = *m_mueR_ptr;
+		m_mueR(ny, pos[0], pos[1], pos[2]) =  EffMat[2];
+	}
+	if (m_sigma_ptr)
+	{
+		ArrayLib::ArrayNIJK<float>& m_sigma = *m_sigma_ptr;
+		m_sigma(ny, pos[0], pos[1], pos[2]) =  EffMat[3];
+	}
 
 	double delta = GetEdgeLength(ny,pos);
 	double area  = GetEdgeArea(ny,pos);
@@ -1536,11 +1553,15 @@ bool Operator::Calc_EffMatPos(int ny, const unsigned int* pos, double* EffMat, v
 bool Operator::Calc_LumpedElements()
 {
 	vector<CSProperties*> props = CSX->GetPropertyByType(CSProperties::LUMPED_ELEMENT);
+
 	for (size_t i=0;i<props.size();++i)
 	{
+
 		CSPropLumpedElement* PLE = dynamic_cast<CSPropLumpedElement*>(props.at(i));
+
 		if (PLE==NULL)
 			return false; //sanity check: this should never happen!
+
 		vector<CSPrimitives*> prims = PLE->GetAllPrimitives();
 		for (size_t bn=0;bn<prims.size();++bn)
 		{
@@ -1554,6 +1575,11 @@ bool Operator::Calc_LumpedElements()
 				double R = PLE->GetResistance();
 				if (R<0)
 					R = NAN;
+
+				// If this is not a parallel RC, skip this.
+				if (!(this->IsLEparRC(PLE)))
+					continue;
+
 
 				if ((std::isnan(R)) && (std::isnan(C)))
 				{
@@ -1701,6 +1727,18 @@ bool Operator::Calc_LumpedElements()
 		}
 	}
 	return true;
+}
+
+bool Operator::IsLEparRC(const CSPropLumpedElement* const p_prop)
+{
+	CSPropLumpedElement::LEtype lumpedType = p_prop->GetLEtype();
+
+	double L = p_prop->GetInductance();
+
+	bool IsParallelRC = (lumpedType == CSPropLumpedElement::PARALLEL) && !(L > 0.0);
+
+	// This needs to be something that isn't a parallel RC circuit to add data to this extension.
+	return IsParallelRC;
 }
 
 void Operator::Init_EC()

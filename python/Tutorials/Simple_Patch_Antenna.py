@@ -111,7 +111,7 @@ if 0:  # debugging only
     os.system(AppCSXCAD_BIN + ' "{}"'.format(CSX_file))
 
 if not post_proc_only:
-    FDTD.Run(Sim_Path, verbose=3, cleanup=True)
+    FDTD.Run(Sim_Path, cleanup=True)
 
 
 ### Post-processing and plotting
@@ -120,7 +120,7 @@ port.CalcPort(Sim_Path, f)
 s11 = port.uf_ref/port.uf_inc
 s11_dB = 20.0*np.log10(np.abs(s11))
 figure()
-plot(f/1e9, s11_dB, 'k-', linewidth=2, label='$S_{11}$')
+plot(f/1e9, s11_dB, 'k-', linewidth=2, label=r'$S_{11}$')
 grid()
 legend()
 ylabel('S-Parameter (dB)')
@@ -147,8 +147,8 @@ else:
 
 Zin = port.uf_tot/port.if_tot
 figure()
-plot(f/1e9, np.real(Zin), 'k-', linewidth=2, label='$\Re\{Z_{in}\}$')
-plot(f/1e9, np.imag(Zin), 'r--', linewidth=2, label='$\Im\{Z_{in}\}$')
+plot(f/1e9, np.real(Zin), 'k-', linewidth=2, label=r'$\Re\{Z_{in}\}$')
+plot(f/1e9, np.imag(Zin), 'r--', linewidth=2, label=r'$\Im\{Z_{in}\}$')
 grid()
 legend()
 ylabel('Zin (Ohm)')

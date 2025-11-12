@@ -27,6 +27,7 @@
 #include <time.h>
 #include <vector>
 
+#include <boost/program_options.hpp>
 #include "openems_global.h"
 
 #define __OPENEMS_STAT_FILE__ "openEMS_stats.txt"
@@ -37,6 +38,7 @@ class Engine;
 class Engine_Interface_FDTD;
 class ProcessingArray;
 class TiXmlElement;
+class TiXmlNode;
 class ContinuousStructure;
 class Engine_Interface_FDTD;
 class Excitation;
@@ -51,8 +53,8 @@ public:
 	openEMS();
 	virtual ~openEMS();
 
-	virtual bool parseCommandLineArgument( const char *argv );
-	static void showUsage();
+	boost::program_options::options_description optionDesc();
+	virtual void showUsage();
 
 	bool ParseFDTDSetup(std::string file);
 	virtual bool Parse_XML_FDTDSetup(TiXmlElement* openEMSxml);
@@ -75,6 +77,9 @@ public:
 	void SetTimeStep(double val) {m_TS=val;}
 	void SetTimeStepFactor(double val) {m_TS_fac=val;}
 	void SetMaxTime(double val) {m_maxTime=val;}
+
+	// used by Python binding when running as a shared library
+	void SetLibraryArguments(std::vector<std::string> allOptions);
 
 	void SetNumberOfThreads(int val);
 
@@ -105,6 +110,7 @@ public:
 	void SetSinusExcite(double f0);
 	void SetDiracExcite(double f_max);
 	void SetStepExcite(double f_max);
+	void SetCustomExcite(std::string str, double f0, double fmax);
 
 	Excitation* InitExcitation();
 
@@ -114,7 +120,13 @@ public:
 
 	void SetVerboseLevel(int level);
 
+	bool Write2XML(TiXmlNode* rootNode);
+	bool Write2XML(std::string file);
+	bool ReadFromXML(std::string file);
+
 protected:
+	void collectCommandLineArguments();
+
 	bool CylinderCoords;
 	std::vector<double> m_CC_MultiGrid;
 
@@ -163,6 +175,9 @@ protected:
 	int m_BC_type[6];
 	unsigned int m_PML_size[6];
 	double m_Mur_v_ph[6];
+
+	//! Setup local absorbing boundary conditions
+	void SetupAbsorbingSheets();
 
 	//! Check whether or not the FDTD-Operator has to store material data.
 	bool SetupMaterialStorages();

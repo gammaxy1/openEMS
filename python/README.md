@@ -1,14 +1,11 @@
 # openEMS python interface
 
 ## Install
-* Simple version:
-```python
+If openEMS was installed into `~/opt`, then install this package with:
+
+```bash
+python setup.py build_ext -I ~/opt/include -L ~/opt/lib -R ~/opt/lib
 python setup.py install
 ```
 
-* Extended options, e.g. for custom install path at */opt/openEMS*:
-```python
-python setup.py build_ext -I/opt/openEMS/include -L/opt/openEMS/lib -R/opt/openEMS/lib"
-python setup.py install
-```
-**Note:** The install command may require root on Linux, or add --user to install to ~/.local
+Otherwise, replace `~/opt` with the path to the place where it was installed.

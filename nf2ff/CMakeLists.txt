@@ -7,7 +7,11 @@ ELSE()
 ENDIF()
 
 PROJECT(nf2ff CXX)
-cmake_minimum_required(VERSION 2.8)
+
+# In CMake 4, 3.10 is deprecated and 3.5 has been removed.
+# use 3.0...3.10 so all of these versions are acceptable as min. version.
+# https://cmake.org/cmake/help/latest/command/cmake_minimum_required.html
+cmake_minimum_required(VERSION 3.0...3.10)
 
 set(LIB_VERSION_MAJOR 0)
 set(LIB_VERSION_MINOR 1)
@@ -33,6 +37,7 @@ set(HEADERS
 
 add_library( nf2ff SHARED ${SOURCES})
 set_target_properties(nf2ff PROPERTIES VERSION ${LIB_VERSION_STRING} SOVERSION ${LIB_VERSION_MAJOR})
+set_target_properties(nf2ff PROPERTIES CXX_STANDARD 11)
 if (WIN32)
     target_compile_definitions(nf2ff PRIVATE -DBUILD_NF2FF_LIB )
 endif (WIN32)

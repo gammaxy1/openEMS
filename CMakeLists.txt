@@ -7,12 +7,16 @@ ELSE()
 ENDIF()
 
 PROJECT(openEMS CXX C)
-cmake_minimum_required(VERSION 3.0)
+
+# In CMake 4, 3.10 is deprecated and 3.5 has been removed.
+# use 3.0...3.10 so all of these versions are acceptable as min. version.
+# https://cmake.org/cmake/help/latest/command/cmake_minimum_required.html
+cmake_minimum_required(VERSION 3.0...3.10)
 
 # default
 set(LIB_VERSION_MAJOR 0)
 set(LIB_VERSION_MINOR 0)
-set(LIB_VERSION_PATCH 35)
+set(LIB_VERSION_PATCH 36)
 set(LIB_VERSION_STRING ${LIB_VERSION_MAJOR}.${LIB_VERSION_MINOR}.${LIB_VERSION_PATCH})
 
 set(VERSION "v${LIB_VERSION_STRING}")
@@ -22,8 +26,6 @@ IF(EXISTS ${PROJECT_SOURCE_DIR}/localConfig.cmake)
 ENDIF()
 
 #ADD_DEFINITIONS( -D__SSE2__ )
-
-set(VERSION "v0.0.35")
 
 # add git revision
 IF(EXISTS ${PROJECT_SOURCE_DIR}/.git )
@@ -113,9 +115,8 @@ message(STATUS "TinyXML_LIBRARY: ${TinyXML_LIBRARY}")
 INCLUDE_DIRECTORIES( ${TinyXML_INCLUDE_DIR} )
 
 # hdf5
-find_package(HDF5 1.8 COMPONENTS C HL REQUIRED)
+find_package(HDF5 COMPONENTS C HL REQUIRED)
 INCLUDE_DIRECTORIES (${HDF5_INCLUDE_DIRS})
-link_directories(${HDF5_LIBRARIES})
 # hdf5 compat
 #ADD_DEFINITIONS( -DH5_USE_16_API )
 #ADD_DEFINITIONS( -DH5_BUILT_AS_DYNAMIC_LIB )
@@ -123,57 +124,35 @@ link_directories(${HDF5_LIBRARIES})
 # boost
 find_package(Boost 1.46 COMPONENTS
   thread
-  system
   date_time
   serialization
   chrono
+  program_options
   REQUIRED
 )
+if (${Boost_MINOR_VERSION} LESS 69)
+    # Since Boost 1.69, "system" is header only, so a check
+    # is needed only in Boost 1.68 and earlier.
+    find_package(Boost 1.46 COMPONENTS system thread date_time serialization chrono program_options REQUIRED)
+endif()
 message(STATUS "Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
 message(STATUS "Boost_LIBRARIES: ${Boost_LIBRARIES}")
 INCLUDE_DIRECTORIES (${Boost_INCLUDE_DIRS})
 
 # vtk
-find_package(VTK COMPONENTS vtkIOXML vtkIOGeometry vtkIOLegacy vtkIOPLY NO_MODULE REQUIRED)
+find_package(VTK COMPONENTS vtkCommonCore NO_MODULE QUIET)
+if (${VTK_VERSION} VERSION_GREATER "9")
+    find_package(VTK REQUIRED COMPONENTS IOXML IOGeometry IOLegacy IOPLY NO_MODULE REQUIRED)
+else()
+    find_package(VTK REQUIRED COMPONENTS vtkIOXML vtkIOGeometry vtkIOLegacy vtkIOPLY NO_MODULE REQUIRED)
+    include(${VTK_USE_FILE})
+endif()
 
 message(STATUS "Found package VTK. Using version " ${VTK_VERSION})
 set( vtk_LIBS ${VTK_LIBRARIES} )
 message(STATUS "vtk libraries " ${vtk_LIBS})
 
-include(${VTK_USE_FILE})
 INCLUDE_DIRECTORIES (${VTK_INCLUDE_DIR})
-
-if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
-  set(ARCH "x86_64")
-elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "amd64")
-  set(ARCH "x86_64")
-elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "AMD64")
-  set(ARCH "x86_64")
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(ppc64.*|PPC64.*|powerpc64.*)")
-  set(ARCH "ppc64")
-elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^(aarch64|arm64)")
-  set(ARCH "aarch64")
-elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "unknown")
-  set(ARCH "unknown")
-  message(FATAL_ERROR "Unable to determine target architecture!  Try setting CMAKE_SYSTEM_PROCESSOR to a valid value.")
-else()
-  set(ARCH "unsupported")
-endif()
-
-if(${ARCH} STREQUAL "x86_64")
-  message(STATUS "Detected 64-bit x86 target")
-  #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse -march=native")
-elseif(${ARCH} STREQUAL "ppc64")
-  message(STATUS "Detected 64-bit POWER target")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNO_WARN_X86_INTRINSICS -DSSE_CORRECT_DENORMALS")
-elseif(${ARCH} STREQUAL "aarch64")
-  message(STATUS "Detected 64-bit ARM target")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNO_WARN_X86_INTRINSICS -DSSE_CORRECT_DENORMALS")
-elseif(${ARCH} STREQUAL "unsupported")
-  message(FATAL_ERROR "Unsupported target architecture!  Try porting openEMS to your architecture...")
-else()
-  message(FATAL_ERROR "Unable to determine target architecture!  Aborting.")
-endif()
 
 # independent tool
 ADD_SUBDIRECTORY( nf2ff )
